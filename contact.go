@@ -23,6 +23,11 @@ func (wac *Conn) GetProfilePicThumb(jid string) (<-chan string, error) {
 	return wac.write(data)
 }
 
+func (wac *Conn) GetExist(jid string) (<-chan string, error) {
+	data := []interface{}{"query", "exist", jid}
+	return wac.write(data)
+}
+
 func (wac *Conn) GetStatus(jid string) (<-chan string, error) {
 	data := []interface{}{"query", "Status", jid}
 	return wac.write(data)
