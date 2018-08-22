@@ -97,21 +97,24 @@ func init() {
 MessageInfo contains general message information. It is part of every of every message type.
 */
 type MessageInfo struct {
-	Id        string
-	RemoteJid string
-	FromMe    bool
-	Timestamp uint64
-	PushName  string
-	Status    int
+	Id              string
+	RemoteJid       string
+	FromMe          bool
+	Timestamp       uint64
+	PushName        string
+	Status          MessageStatus
+	QuotedMessageID string
 }
 
+type MessageStatus int
+
 const (
-	StatusError       = 0
-	StatusPending     = 1
-	StatusServerAck   = 2
-	StatusDeliveryAck = 3
-	StatusRead        = 4
-	StatusPlayed      = 5
+	Error       MessageStatus = 0
+	Pending                   = 1
+	ServerAck                 = 2
+	DeliveryAck               = 3
+	Read                      = 4
+	Played                    = 5
 )
 
 func getMessageInfo(msg *proto.WebMessageInfo) MessageInfo {
@@ -120,7 +123,7 @@ func getMessageInfo(msg *proto.WebMessageInfo) MessageInfo {
 		RemoteJid: msg.GetKey().GetRemoteJid(),
 		FromMe:    msg.GetKey().GetFromMe(),
 		Timestamp: msg.GetMessageTimestamp(),
-		Status:    int(msg.GetStatus()),
+		Status:    MessageStatus(msg.GetStatus()),
 		PushName:  msg.GetPushName(),
 	}
 }
@@ -158,10 +161,14 @@ type TextMessage struct {
 }
 
 func getTextMessage(msg *proto.WebMessageInfo) TextMessage {
-	return TextMessage{
-		Info: getMessageInfo(msg),
-		Text: msg.GetMessage().GetConversation(),
+	text := TextMessage{Info: getMessageInfo(msg)}
+	if m := msg.GetMessage().GetExtendedTextMessage(); m != nil {
+		text.Text = m.GetText()
+		text.Info.QuotedMessageID = m.GetContextInfo().GetStanzaId()
+	} else {
+		text.Text = msg.GetMessage().GetConversation()
 	}
+	return text
 }
 
 func getTextProto(msg TextMessage) *proto.WebMessageInfo {
@@ -415,6 +422,9 @@ func parseProtoMessage(msg *proto.WebMessageInfo) interface{} {
 		return getDocumentMessage(msg)
 
 	case msg.GetMessage().GetConversation() != "":
+		return getTextMessage(msg)
+
+	case msg.GetMessage().GetExtendedTextMessage() != nil:
 		return getTextMessage(msg)
 
 	default:
